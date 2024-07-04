@@ -1,5 +1,8 @@
-# WINJECTION-NATIVEAP
-This is a small project i've been working on that takes a windows 11 process and injects it with shell code, which can be customised via main.c, we use the Native API in hopes to become less detectable from antivirus' and windows defender.
+# WINJECTION
+Winjection is a stack of windows injection project's I've been working on, some more effective than others.
+
+**NativeAPI** -- This is a small project i've been working on that takes a windows 11 process and injects it with shell code, which can be customised via main.c, we use the Native API in hopes to become less detectable from antivirus' and windows defender.
+**BasicInjection** -- Basic Injection is a simple injection code. It's similar to NativeAPI except it's more detectable as it interacts with the win32 API instead of the Native API.
 ## Credits 📜
 [Crow](https://www.youtube.com/@crr0ww) -- The YouTuber that made the tutorial for this code. I thank him endlessly for making such entertaining and informative vidoes.
 
