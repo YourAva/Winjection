@@ -8,3 +8,7 @@ Winjection is a stack of windows injection project's I've been working on, some 
 
 ## Notice ‼️
 This code was made for Windows 11 (x64) build 10.0.22631.2428. It may not work as intended on other builds. In addition. **THIS PROGRAM IS MALWARE!**, It's not that powerful, but depending on what's in the shell code, it absolutely can be, be safe, and happy hacking! <3
+<br/>
+![Alt text](https://assets-jpcust.jwpsrv.com/thumbnails/znve3yd1-720.jpg)
+<br/>
+*"While I'm at it... maybe I will dissect everybody!"*
