@@ -31,13 +31,14 @@ HANDLE hNTDLL = NULL;
 HANDLE hProcess, hThread = NULL;
 UNICODE_STRING uString;
 
-wchar_t dllPath[MAX_PATH] = L"C:\\Users\\AvaLi\\Documents\\programming\\Maldev\\Winjection-NativeAPI\\Winjection-NativeAPI\\DLLInjection\\build\\ALB.dll";
+wchar_t dllPath[MAX_PATH] = L"C:\\Users\\AvaLi\\Documents\\programming\\Maldev\\Winjection-NativeAPI\\Winjection-NativeAPI\\NTDLLInjection\\build\\ALB.dll";
 size_t dllPathSize = sizeof(dllPath);
 
 int main(int argc, char* argv[]) {
+    info("DllPath: %zu bits",dllPathSize);
     if (argc < 2) {
         warn("Incorrect usage.\n%s [PID]\n\t\\___Process ID to Inject to.", argv[0]);
-        return EXIT_FAILURE;
+        return EXIT_FAILURE;    
     }
 
     PID = atoi(argv[1]);
@@ -75,7 +76,7 @@ int main(int argc, char* argv[]) {
     }
     info("Finding the size of the dll path to be injected...");
     SIZE_T stringLength = (wcslen(dllPath) + 1) * sizeof(WCHAR); // +1 for null terminator
-    SIZE_T totalSize = (sizeof(UNICODE_STRING) + stringLength) * 500;
+    SIZE_T totalSize = sizeof(UNICODE_STRING) + stringLength ;
     okay("UNICODE_STRING fully populated and sized.");
 
     /* ALLOCATE MEMORY TO THE PROCESS WE JUST GRABBED THE HANDLE OF. */
